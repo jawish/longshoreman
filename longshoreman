@@ -1,0 +1,56 @@
+#!/bin/bash
+####
+## Main process for docker container
+## Usage: longshoreman [-p] [-i <remote|local|git> <installer arguments>]
+##
+##
+## @author Jawish Hameed <jaa@semicolon.com.mv>
+####
+
+### ARGUMENTS HANDLING ###
+
+installer=
+process_manager=
+
+## Check if an installer is to be run
+while getopts :i:p: option; do
+	case $option in
+		i)
+			installer=$OPTARG
+			;;
+		p)
+			process_manager=$OPTARG
+			;;
+	esac
+done
+
+shift $(( ${OPTIND} - 1 ))
+
+### END ARGUMENTS HANDLING ###
+
+case $installer in
+	remote)
+		echo "Running install with remote URL script/archive..."
+		longshoreman-install-remote ${*}
+		;;
+	local)
+		echo "Running install with local script..."
+		longshoreman-install-local ${*}
+		;;
+	git)
+		echo "Running install with Git repository..."
+		longshoreman-install-git ${*}
+		;;
+esac
+
+## Start process manager to launch and monitor all required processes and files
+if [ ! -z "$process_manager" ]; then
+	echo "Starting process manager $process_manager"
+	eval $process_manager
+fi
+
+while ( true ); do
+    echo "To detach terminal, press ctrl-p ctrl-q. Dropping to shell..."
+    sleep 1
+    /bin/bash
+done

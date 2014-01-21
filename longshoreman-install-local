@@ -1,0 +1,18 @@
+#!/bin/bash
+####
+## Run a installer shellscript from the local filesystem
+## Shellscript should be available at /srv/app-installer/install.sh
+##
+## @author Jawish Hameed <jaa@semicolon.com.mv>
+####
+
+## Check if installer script exists
+if [ ! -f /srv/app-installer/install ]; then
+    echo "File /srv/app-installer/install does not exist"
+    
+    exit
+fi
+
+## Execute installer!
+chmod +x /srv/app-installer/install
+./srv/app-installer/install

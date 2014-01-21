@@ -1,0 +1,145 @@
+#!/bin/bash
+####
+## Run a installer shellscript by cloning a Git repository
+## Can handle SSH keys
+##
+## @author Jawish Hameed <jaa@semicolon.com.mv>
+####
+
+gitrepo_keymode=
+gitrepo_branch="master"
+gitrepo_deploykey="/root/.ssh/id_rsa_deploy"
+
+### FUNCTIONS ###
+
+function help {
+	echo "Setups the container by cloning a Git repository containing the installer, code and configs."
+	usage
+
+	exit 1
+}
+
+function usage {
+	cat << EOF
+Usage: $0 options <git repository url>
+
+Options:
+	-m  Git key mode
+   			i : Input from stdin
+   			f : Use file inside container specified in the -k argument
+	-k  Path to the private keyfile for Git
+	-b  Git branch to clone. Defaults to "master"
+	-h 	Show this message
+EOF
+}
+
+function key_from_input {
+	## Direct input to SSH key file
+	echo "Enter the SSH private key setup for Git deployment. Press ctrl-d when done."
+	tee $gitrepo_deploykey > /dev/null
+}
+
+function key_from_file {
+	## Wait 60 seconds to allow the deployment ssh key to be copied into the container
+	echo "Copy deployment ssh key to $gitrepo_deploykey now..."
+
+	for (( t=1; t<=60; t++ ))
+	do
+		sleep 1
+
+		if [ -f $gitrepo_deploykey ]; then
+			break
+		fi
+	done
+
+	if [ ! -f $gitrepo_deploykey ]; then
+		echo "Timed-out while waiting for deployment ssh key to be copied into the container"
+		exit 1
+	fi
+}
+### END FUNCTIONS ###
+
+### ARGUMENTS HANDLING ###
+
+while getopts :m:b:k:h option; do
+	case $option in
+		m)
+			gitrepo_keymode=$OPTARG
+			;;
+		b)
+			gitrepo_branch=$OPTARG
+			;;
+		k)
+			gitrepo_deploykey=$OPTARG
+			;;
+		h)
+			help
+			exit
+			;;
+	esac
+done
+
+shift $(( ${OPTIND} - 1 ))
+
+## Check if Git repo URL argument is set
+if [ -z "$1" ]; then
+	echo "You must specify a Git repository URL."
+	usage
+
+	exit 1
+fi
+gitrepo_url=$1
+
+## Get host from the specified Git URL
+gitrepo_host=`php -n -r "echo parse_url('$gitrepo_url')['host'];"`
+if [ -z "$gitrepo_host" ]; then
+	echo "Unable to extract hostname from the given Git repository URL."
+	usage
+
+	exit 1
+fi
+
+### END ARGUMENTS HANDLING ###
+
+### MAIN ###
+
+## Make the .ssh directory
+mkdir -p /root/.ssh
+
+case $gitrepo_keymode in
+	"i")
+		## Get key from stdin
+		key_from_input
+		;;
+	"f")
+		## Get key from file copied into the file system
+		key_from_file
+		;;
+esac
+
+## Apply the correct permissions to the deployment key
+chmod 600 $gitrepo_deploykey
+
+## Add git host to known_hosts file
+ssh-keyscan $gitrepo_host > /root/.ssh/known_hosts 2> /dev/null
+
+## Setup ssh-agent for authentication
+pkill ssh-agent
+eval `ssh-agent`
+ssh-add $gitrepo_deploykey
+
+## Clone app source code into app directory from git
+rm -rf /srv/* /srv/.[^.]*
+git clone --recursive -b $gitrepo_branch $gitrepo_url /srv/app-installer
+
+## Check if installer script exists
+if [ ! -f /srv/app-installer/install ]; then
+    echo "File /srv/app-installer/install does not exist"
+    exit
+fi
+
+## Execute installer!
+chmod +x /srv/app-installer/install
+/srv/app-installer/install
+
+### END MAIN ###

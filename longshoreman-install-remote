@@ -1,0 +1,80 @@
+#!/bin/bash
+####
+## Download and run a installer shellscript from given remote URL.
+## URL can be a shellscript or Zip/GZip archive containing a install.sh shellscript.
+##
+## @author Jawish Hameed <jaa@semicolon.com.mv>
+####
+
+### FUNCTIONS ###
+
+function help {
+    echo "Installer can be a shellscript, or a Zip/GZip archive containing a shellscript file named install.sh"
+    usage
+
+    exit 1
+}
+
+function usage {
+    echo "Usage: $0 <installer_url>"
+}
+
+### END FUNCTIONS ###
+
+### ARGUMENTS HANDLING ###
+
+## Show usage
+if [ $# -lt 1 ]; then
+    help
+
+    exit 1
+fi
+
+### END ARGUMENTS HANDLING ###
+
+### MAIN ###
+
+## Prepare install directory
+rm -rf /srv/app-installer
+mkdir -p /srv/app-installer
+
+## Download remote file
+wget -q -O /tmp/app-installer $1
+
+## Check if file downloaded OK
+if [ $? -ne 0 ]; then
+    echo "Error fetching installer $1"
+    
+    exit 1
+fi
+
+## Get file type, extract
+filetype=$( file --brief --mime-type /tmp/app-installer )
+case "$filetype" in
+    application/x-gzip)
+        tar zxf /tmp/app-installer -C /srv/app-installer
+        ;;
+    application/zip)
+        unzip /tmp/app-installer -d /srv/app-installer
+        ;;
+    text/x-shellscript)
+        cp /tmp/app-installer /srv/app-installer/install
+        ;;
+    *)
+        echo "Invalid installer file type $filetype"
+
+        exit 1
+esac
+
+## Check if installer script exists
+if [ ! -f /srv/app-installer/install ]; then
+    echo "File /srv/app-installer/install does not exist"
+
+    exit
+fi
+
+## Execute installer!
+chmod +x /srv/app-installer/install
+/srv/app-installer/install
+
+### END MAIN ###
