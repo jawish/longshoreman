@@ -1,11 +1,10 @@
 #!/bin/bash
-####
+###
 ## Main process for docker container
 ## Usage: longshoreman [-p] [-i <remote|local|git> <installer arguments>]
 ##
-##
 ## @author Jawish Hameed <jaa@semicolon.com.mv>
-####
+###
 
 ### ARGUMENTS HANDLING ###
 
@@ -49,8 +48,13 @@ if [ ! -z "$process_manager" ]; then
 	eval $process_manager
 fi
 
+## Endless loop, keep process running :)
 while ( true ); do
-    echo "To detach terminal, press ctrl-p ctrl-q. Dropping to shell..."
-    sleep 1
-    /bin/bash
+	## If TTY enabled, then show shell
+	if [ -t 1 ]; then
+		echo "To detach terminal, press ctrl-p ctrl-q. Dropping to shell..."
+		/bin/bash
+	fi
+	
+	sleep 1
 done
