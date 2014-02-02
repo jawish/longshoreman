@@ -91,6 +91,7 @@ fi
 gitrepo_url=$1
 
 ## Get host from the specified Git URL
+## Expected URL format: ssh://user@domain.com/path/repo.git
 gitrepo_host=`php -n -r "echo parse_url('$gitrepo_url')['host'];"`
 if [ -z "$gitrepo_host" ]; then
 	echo "Unable to extract hostname from the given Git repository URL."
